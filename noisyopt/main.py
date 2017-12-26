@@ -350,13 +350,19 @@ def minimizeSPSA(func, x0, args=(), bounds=None, niter=100, paired=True,
     message = 'terminated after reaching max number of iterations'
     return OptimizeResult(fun=funcf(x), x=x, nit=niter, nfev=2*niter, message=message, success=True)
 
-# Identical to the above SPSA,
-# except, this is a discrete-parameter variant.
+# An integer-parameter variant of minimizeSPSA
 def minimize_discrete_SPSA(func, x0, args=(), bounds=None, niter=100, paired=True,
                  a=1.0, alpha=0.602, disp=False, callback=None):
     """
     Discrete-parameter variant of the simultaneous perturbation
-    stochastic approximation algorithm.
+    stochastic approximation algorithm, from the paper:
+    
+    Discrete Stochastic Approximation with Application
+    to Resource Allocation
+    by Stacy D. Hil,
+    JOHNS HOPKINS APL TECHNICAL DIGEST, VOLUME 26, NUMBER 1 (2005)
+
+    
 
     This algorithm approximates the gradient of the function by finite differences
     along stochastic directions Deltak. The elements of Deltak are drawn from
@@ -368,7 +374,7 @@ def minimize_discrete_SPSA(func, x0, args=(), bounds=None, niter=100, paired=Tru
     
 
     See Spall, IEEE, 1998, 34, 817-823 for guidelines about how to choose the algorithm's
-    parameters (a, alpha, c, gamma).
+    parameters (a, alpha).
 
     Parameters
     ----------
