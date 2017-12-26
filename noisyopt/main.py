@@ -350,6 +350,98 @@ def minimizeSPSA(func, x0, args=(), bounds=None, niter=100, paired=True,
     message = 'terminated after reaching max number of iterations'
     return OptimizeResult(fun=funcf(x), x=x, nit=niter, nfev=2*niter, message=message, success=True)
 
+# Identical to the above SPSA,
+# except, this is a discrete-parameter variant.
+def minimize_discrete_SPSA(func, x0, args=(), bounds=None, niter=100, paired=True,
+                 a=1.0, alpha=0.602, disp=False, callback=None):
+    """
+    Discrete-parameter variant of the simultaneous perturbation
+    stochastic approximation algorithm.
+
+    This algorithm approximates the gradient of the function by finite differences
+    along stochastic directions Deltak. The elements of Deltak are drawn from
+    +- 1 with probability one half. The gradient is approximated from the 
+    symmetric difference f([xk] + Deltak) - f([xk] - Deltak)
+    where [xk] is obtained by taking the integer part of xk along each dimension.
+    The algorithm takes a step of size ak = a/(0.01*niter+k+1)**alpha along the
+    negative gradient.
+    
+
+    See Spall, IEEE, 1998, 34, 817-823 for guidelines about how to choose the algorithm's
+    parameters (a, alpha, c, gamma).
+
+    Parameters
+    ----------
+    func: callable
+        objective function to be minimized:
+        called as `func(x, *args)`,
+        if `paired=True`, then called with keyword argument `seed` additionally
+    x0: array-like
+        initial guess for parameters 
+    args: tuple
+        extra arguments to be supplied to func
+    bounds: array-like
+        bounds on the variables
+    niter: int
+        number of iterations after which to terminate the algorithm
+    paired: boolean
+        calculate gradient for same random seeds
+    a: float
+       scaling parameter for step size
+    alpha: float
+        scaling exponent for step size
+    disp: boolean
+        whether to output status updates during the optimization
+    callback: callable
+        called after each iteration, as callback(xk), where xk are the current parameters
+
+    Returns
+    -------
+    `scipy.optimize.OptimizeResult` object
+    """
+    A = 0.01 * niter
+
+    if bounds is not None:
+        bounds = np.asarray(bounds)
+        project = lambda x: np.clip(x, bounds[:, 0], bounds[:, 1])
+
+    if args is not None:
+        # freeze function arguments
+        def funcf(x, **kwargs):
+            return func(x, *args, **kwargs)
+
+    N = len(x0)
+
+    x = x0
+
+    for k in range(niter):
+        ak = a/(k+1.0+A)**alpha
+        Deltak = np.random.choice([-1, 1], size=N)
+        x_int = np.trunc(x)
+
+        fkwargs = dict()
+        if paired:
+            fkwargs['seed'] = np.random.randint(0, np.iinfo(np.uint32).max)
+        if bounds is None:
+            grad = (funcf(x_int + Deltak, **fkwargs) - funcf(x_int - Deltak, **fkwargs)) / (2*Deltak)
+            x -= ak*grad
+        else:
+            # ensure evaluation points are feasible
+            xplus = project(x_int + Deltak)
+            xminus = project(x_int - Deltak)
+            grad = (funcf(xplus, **fkwargs) - funcf(xminus, **fkwargs)) / (xplus-xminus)
+            x = project(x - ak*grad)
+
+        # print 100 status updates if disp=True
+        if disp and (k % (niter//100)) == 0:
+            print(x)
+        if callback is not None:
+            callback(x)
+    message = 'terminated after reaching max number of iterations'
+    x_round = np.round(x)
+    return OptimizeResult(fun=funcf(x_round), x=x_round, nit=niter, nfev=2*niter, message=message, success=True)
+
+
 class AverageBase(object):
     """
     Base class for averaged evaluation of noisy functions.
